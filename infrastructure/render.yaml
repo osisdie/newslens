@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-news-backend
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: false
+

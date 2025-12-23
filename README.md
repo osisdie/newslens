@@ -1,93 +1,151 @@
-# react-ai-news
+# AI News Aggregator - iOS/Web App
 
+A news aggregation application that allows users to track news from multiple sources based on their interests and keywords. Available on iOS and Web.
 
+## Features
 
-## Getting started
+### Core Features
+- **Multi-source News Aggregation**: Input news source websites and keywords to filter relevant articles
+- **Smart Filtering**: Each source can have multiple keywords for targeted news discovery
+- **Latest First**: News sorted by publication date (newest first)
+- **News Analysis**: Each article tagged with:
+  - Source and publication date
+  - Fake news detection rate
+  - Clickbait headline rate
+  - Phishing detection rate
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+### Subscription Tiers
+- **Free Tier**: 
+  - 3 news source links
+  - 3 keywords per link
+- **Paid Tier**: 
+  - Unlimited news source links
+  - Unlimited keywords per link
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### Billing Features
+- Monthly subscription management
+- Billing status and history
+- Auto-renewal control (can stop auto-renew, no refunds)
 
-## Add your files
+### Authentication
+- Login from web or iOS app
+- Secure authentication system
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Tech Stack
+
+### Frontend
+- React Native (iOS + Web support)
+- React Navigation
+- AsyncStorage for local data
+
+### Backend
+- Node.js + Express
+- PostgreSQL (or SQLite for development)
+- JWT authentication
+- News scraping with Puppeteer/Cheerio
+
+### Infrastructure
+- Low-cost cloud hosting (Railway/Render/Vercel)
+- Usage quota limits to prevent billing spikes
+- Daily and monthly usage tracking
+
+## Project Structure
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/nwpie/react/react-ai-news.git
-git branch -M main
-git push -uf origin main
+react-ai-news/
+├── mobile/                 # React Native iOS app
+├── web/                    # Web version (React)
+├── backend/                # Node.js API server
+├── shared/                 # Shared types and utilities
+└── infrastructure/         # Deployment configs
 ```
 
-## Integrate with your tools
+## Getting Started
 
-* [Set up project integrations](https://gitlab.com/nwpie/react/react-ai-news/-/settings/integrations)
+### Prerequisites
+- **Node.js 20** (required - see [docs/SETUP_NODE.md](./docs/SETUP_NODE.md) to set as default)
+- React Native CLI
+- PostgreSQL (or SQLite for dev)
+  - **WSL users**: Run `bash backend/scripts/install-postgresql-wsl.sh` for first-time setup
+- iOS development tools (Xcode for iOS)
 
-## Collaborate with your team
+### Installation
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+1. Clone the repository
+2. **Set up Node.js 20** (if not already default):
+   ```bash
+   npm run setup-node  # Sets Node.js 20 as default
+   npm run setup-nvm   # Auto-loads nvm in your shell
+   ```
+3. Install dependencies (see [docs/INSTALL.md](./docs/INSTALL.md) for detailed instructions):
+   ```bash
+   # Install backend
+   cd backend && npm install && cd ..
+   
+   # Install web
+   cd web && npm install && cd ..
+   
+   # Install mobile (requires --legacy-peer-deps for Expo)
+   cd mobile && npm install --legacy-peer-deps && cd ..
+   ```
+   
+   **Note**: Due to React version differences between workspaces, install each separately. See [INSTALL.md](./INSTALL.md) for details.
 
-## Test and Deploy
+3. Set up environment variables (see `backend/.env.example`)
 
-Use the built-in continuous integration in GitLab.
+4. Set up database:
+   ```bash
+   cd backend
+   npm run create-db  # Creates DB and initializes schema
+   # OR if DB already exists:
+   npm run migrate     # Just initializes schema
+   ```
+   
+   See [docs/DATABASE_SETUP.md](./docs/DATABASE_SETUP.md) for troubleshooting.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+5. Start the backend:
+   ```bash
+   cd backend && npm run dev
+   ```
 
-***
+6. Start the mobile app:
+   ```bash
+   cd mobile && npm run ios
+   ```
 
-# Editing this README
+7. Start the web app:
+   ```bash
+   cd web && npm start
+   ```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## Environment Variables
 
-## Suggestions for a good README
+### Backend
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Copy `backend/.env.example` to `backend/.env` and configure:
 
-## Name
-Choose a self-explaining name for your project.
+**Required:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Secret key for JWT tokens (generate with: `openssl rand -base64 32`)
+- `STRIPE_SECRET_KEY` - Stripe API secret key
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `SUBSCRIPTION_PRICE_ID` - Stripe price ID for monthly subscription
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+**Optional (with defaults):**
+- `PORT` - Server port (default: 3000)
+- Usage quota limits (DAILY_API_LIMIT, MONTHLY_API_LIMIT, etc.)
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+See `backend/.env.example` for complete list with detailed comments.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+For Stripe setup instructions, see [docs/STRIPE_SETUP.md](./docs/STRIPE_SETUP.md).
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Mobile/Web
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Optional environment variables (defaults to `http://localhost:3000/api`):
+- `EXPO_PUBLIC_API_URL` (mobile)
+- `VITE_API_URL` (web)
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT
+

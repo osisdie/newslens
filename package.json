@@ -1,0 +1,37 @@
+{
+  "name": "react-ai-news",
+  "version": "1.0.0",
+  "description": "AI-powered news aggregation app for iOS and Web",
+  "private": "true",
+  "workspaces": [
+    "mobile",
+    "web",
+    "backend"
+  ],
+  "scripts": {
+    "load-nvm": "bash -c 'source scripts/load-nvm.sh'",
+    "setup-node": "bash scripts/setup-node.sh",
+    "setup-nvm": "bash .bashrc-setup.sh",
+    "install:all": "npm install --legacy-peer-deps && cd mobile && npm install --legacy-peer-deps && cd ../web && npm install && cd ../backend && npm install",
+    "install:backend": "cd backend && npm install",
+    "install:web": "cd web && npm install",
+    "install:mobile": "cd mobile && npm install --legacy-peer-deps",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:web": "cd web && npm start",
+    "dev:mobile": "cd mobile && npm run ios"
+  },
+  "keywords": [
+    "news",
+    "aggregator",
+    "react-native",
+    "ios",
+    "subscription"
+  ],
+  "author": "",
+  "license": "MIT",
+  "overrides": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
+
