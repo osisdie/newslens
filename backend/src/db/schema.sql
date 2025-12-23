@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS source_keywords (
 CREATE TABLE IF NOT EXISTS news_articles (
   id SERIAL PRIMARY KEY,
   source_id INTEGER REFERENCES news_sources(id) ON DELETE CASCADE,
-  keyword_id INTEGER REFERENCES source_keywords(id) ON DELETE SET NULL,
+  keyword_id INTEGER REFERENCES source_keywords(id) ON DELETE SET NULL, -- Kept for backward compatibility
   title VARCHAR(500) NOT NULL,
   url TEXT NOT NULL,
   description TEXT,
@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS news_articles (
   phishing_rate DECIMAL(3, 2) DEFAULT 0.0,
   analyzed_at TIMESTAMP,
   UNIQUE(source_id, url)
+);
+
+-- Article keywords junction table (many-to-many relationship)
+CREATE TABLE IF NOT EXISTS article_keywords (
+  id SERIAL PRIMARY KEY,
+  article_id INTEGER REFERENCES news_articles(id) ON DELETE CASCADE,
+  keyword_id INTEGER REFERENCES source_keywords(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(article_id, keyword_id)
 );
 
 -- Favorites table (user saved articles)
@@ -100,6 +109,8 @@ CREATE INDEX IF NOT EXISTS idx_news_sources_user_id ON news_sources(user_id);
 CREATE INDEX IF NOT EXISTS idx_source_keywords_source_id ON source_keywords(source_id);
 CREATE INDEX IF NOT EXISTS idx_news_articles_source_id ON news_articles(source_id);
 CREATE INDEX IF NOT EXISTS idx_news_articles_published_at ON news_articles(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_article_keywords_article_id ON article_keywords(article_id);
+CREATE INDEX IF NOT EXISTS idx_article_keywords_keyword_id ON article_keywords(keyword_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_usage_tracking_user_date ON usage_tracking(user_id, date);
 

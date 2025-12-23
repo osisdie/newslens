@@ -145,6 +145,19 @@ Optional environment variables (defaults to `http://localhost:3000/api`):
 - `EXPO_PUBLIC_API_URL` (mobile)
 - `VITE_API_URL` (web)
 
+## iOS App Release
+
+For complete instructions on releasing your iOS app to the App Store, including TestFlight beta testing, see [docs/IOS_RELEASE_GUIDE.md](./docs/IOS_RELEASE_GUIDE.md).
+
+**Quick Start:**
+1. Set up Apple Developer account ($99/year)
+2. Install EAS CLI: `npm install -g eas-cli`
+3. Configure build: `cd mobile && eas build:configure`
+4. Build for TestFlight: `eas build --platform ios --profile production`
+5. Submit to App Store: `eas submit --platform ios`
+
+See the [iOS Release Guide](./docs/IOS_RELEASE_GUIDE.md) for detailed steps.
+
 ## License
 
 MIT

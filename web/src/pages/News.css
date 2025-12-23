@@ -74,7 +74,7 @@
 .article-title {
   font-size: 1.25rem;
   font-weight: bold;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   color: #333;
 }
 
@@ -82,7 +82,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
   font-size: 0.875rem;
   color: #666;
 }
@@ -177,9 +177,16 @@
 
 .article-top {
   display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.article-byline {
+  display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .date-badge {
@@ -189,11 +196,20 @@
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .date-badge.large {
   display: inline-block;
   margin-bottom: 0.75rem;
+}
+
+.keyword-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
 }
 
 .keyword-pill {
@@ -202,7 +218,7 @@
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-size: 0.8rem;
-  margin-left: 0.5rem;
+  margin-left: 0;
 }
 
 .article-actions {

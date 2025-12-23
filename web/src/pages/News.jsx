@@ -108,6 +108,20 @@ export default function News() {
   });
 
   const articles = data?.articles || [];
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[News] Articles state:', {
+      hasData: !!data,
+      articlesCount: articles.length,
+      articles: articles.length > 0 ? articles.slice(0, 2).map(a => ({
+        id: a.id,
+        title: a.title?.substring(0, 50),
+        keywords: a.keywords,
+        keyword: a.keyword
+      })) : 'none'
+    });
+  }, [data, articles]);
 
   const favoriteIds = useMemo(() => {
     const favs = favoritesData?.favorites || [];
@@ -117,9 +131,27 @@ export default function News() {
   const groupedArticles = useMemo(() => {
     const groups = {};
     articles.forEach((article) => {
-      const key = article.keyword || 'Uncategorized';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(article);
+      // Get all keywords for this article (support both keywords array and single keyword for backward compatibility)
+      const articleKeywords = article.keywords && Array.isArray(article.keywords) && article.keywords.length > 0
+        ? article.keywords
+        : (article.keyword ? [article.keyword] : []);
+      
+      // If article has no keywords, add to Uncategorized
+      if (articleKeywords.length === 0) {
+        const key = 'Uncategorized';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(article);
+      } else {
+        // Add article to each keyword group it belongs to
+        articleKeywords.forEach((kw) => {
+          const key = kw || 'Uncategorized';
+          if (!groups[key]) groups[key] = [];
+          // Avoid duplicates - check if article already in this group
+          if (!groups[key].some(a => a.id === article.id)) {
+            groups[key].push(article);
+          }
+        });
+      }
     });
     return groups;
   }, [articles]);
@@ -127,9 +159,15 @@ export default function News() {
   const keywordOptions = useMemo(() => {
     const opts = new Set();
     
-    // Add keywords from articles
+    // Add keywords from articles (support both keywords array and single keyword)
     articles.forEach((a) => {
-      if (a.keyword) opts.add(a.keyword);
+      if (a.keywords && Array.isArray(a.keywords)) {
+        a.keywords.forEach((kw) => {
+          if (kw) opts.add(kw);
+        });
+      } else if (a.keyword) {
+        opts.add(a.keyword);
+      }
     });
     
     // Add all configured keywords from sources (even if no articles yet)
@@ -155,10 +193,21 @@ export default function News() {
 
   const filteredGroupedArticles = useMemo(() => {
     if (keywordFilter === 'all') return groupedArticles;
+    
+    // Filter articles that have the selected keyword (check all keywords for each article)
     const filtered = {};
     Object.entries(groupedArticles).forEach(([k, list]) => {
       if (k === keywordFilter) {
-        filtered[k] = list;
+        // Only include articles that actually have this keyword
+        const matchingArticles = list.filter((article) => {
+          const articleKeywords = article.keywords && Array.isArray(article.keywords) && article.keywords.length > 0
+            ? article.keywords
+            : (article.keyword ? [article.keyword] : []);
+          return articleKeywords.includes(keywordFilter);
+        });
+        if (matchingArticles.length > 0) {
+          filtered[k] = matchingArticles;
+        }
       }
     });
     return filtered;
@@ -277,24 +326,33 @@ export default function News() {
                   <div key={article.id} className="article-card">
                     <div className="article-top">
                       <h3 className="article-title">{article.title}</h3>
+                    </div>
+                    <div className="article-byline">
+                      <div className="article-author">
+                        {article.author && (
+                          <>
+                            <span className="author-label">By:</span>
+                            <span className="author-name">{article.author}</span>
+                          </>
+                        )}
+                      </div>
                       <span className="date-badge">
                         {formatLocalDate(article.published_at) || 'No date'}
                       </span>
                     </div>
-                    {article.author && (
-                      <div className="article-author">
-                        <span className="author-label">By:</span>
-                        <span className="author-name">{article.author}</span>
-                      </div>
-                    )}
                     {article.description && (
                       <p className="article-description">{article.description}</p>
                     )}
                     <div className="article-meta">
                       <span className="source">{article.source_url}</span>
-                      {article.keyword && (
-                        <span className="keyword-pill">{article.keyword}</span>
-                      )}
+                      <div className="keyword-pills">
+                        {(article.keywords && Array.isArray(article.keywords) && article.keywords.length > 0
+                          ? article.keywords
+                          : (article.keyword ? [article.keyword] : [])
+                        ).map((kw, idx) => (
+                          <span key={idx} className="keyword-pill">{kw}</span>
+                        ))}
+                      </div>
                     </div>
                     <div className="article-ratings">
                       <div className="rating">
@@ -363,9 +421,14 @@ export default function News() {
               )}
               <div className="article-meta">
                 <span className="source">{selectedArticle.source_url}</span>
-                {selectedArticle.keyword && (
-                  <span className="keyword-pill">{selectedArticle.keyword}</span>
-                )}
+                <div className="keyword-pills">
+                  {(selectedArticle.keywords && Array.isArray(selectedArticle.keywords) && selectedArticle.keywords.length > 0
+                    ? selectedArticle.keywords
+                    : (selectedArticle.keyword ? [selectedArticle.keyword] : [])
+                  ).map((kw, idx) => (
+                    <span key={idx} className="keyword-pill">{kw}</span>
+                  ))}
+                </div>
               </div>
               <a
                 href={selectedArticle.url}
@@ -399,7 +462,14 @@ export default function News() {
                       <div className="article-title">{fav.title}</div>
                       <div className="article-meta">
                         <span className="source">{fav.source_url}</span>
-                        {fav.keyword && <span className="keyword-pill">{fav.keyword}</span>}
+                        <div className="keyword-pills">
+                          {(fav.keywords && Array.isArray(fav.keywords) && fav.keywords.length > 0
+                            ? fav.keywords
+                            : (fav.keyword ? [fav.keyword] : [])
+                          ).map((kw, idx) => (
+                            <span key={idx} className="keyword-pill">{kw}</span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     <div className="favorite-actions">

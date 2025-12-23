@@ -13,7 +13,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ainews.aggregator"
+      "bundleIdentifier": "com.ainews.aggregator",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSUserTrackingUsageDescription": "We use tracking to improve your news experience and provide personalized content.",
+        "NSPhotoLibraryUsageDescription": "We need access to your photo library to save news images."
+      }
     },
     "android": {
       "adaptiveIcon": {
