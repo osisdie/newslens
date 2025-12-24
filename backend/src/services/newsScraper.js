@@ -4,8 +4,17 @@ const axios = require('axios');
 
 // Build search URL based on source and keyword using a mapping table
 const SEARCH_PATH_MAP = {
-  'news.google.com': (baseUrl, keyword) =>
-    `${baseUrl}search?q=${encodeURIComponent(keyword)}&hl=zh-TW&gl=TW&ceid=TW%3Azh-Hant`,
+  'news.google.com': (baseUrl, keyword) => {
+    // Ensure baseUrl ends with /
+    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    // Use English locale for better compatibility with English keywords
+    // return `${normalizedBase}search?q=${encodeURIComponent(keyword)}&hl=en&gl=US&ceid=US:en`;
+    return `${normalizedBase}search?q=${encodeURIComponent(keyword)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+  },
+  'money.udn.com': (baseUrl, keyword) => {
+    const normalizedBase = baseUrl.replace(/\/$/, '');
+    return `${normalizedBase}/search/result/1001/${encodeURIComponent(keyword)}?search_type=title`;
+  },
   'tw.news.yahoo.com': (baseUrl, keyword) =>
     `${baseUrl.replace(/\/$/, '')}/search?p=${encodeURIComponent(keyword)}`,
   'news.yahoo.com': (baseUrl, keyword) =>
@@ -61,6 +70,144 @@ async function retryOperation(operation, maxRetries = 3, delay = 2000) {
       console.log(`[Scraper] Retry attempt ${attempt}/${maxRetries} for error: ${error.message}`);
       await new Promise(resolve => setTimeout(resolve, delay * attempt));
     }
+  }
+}
+
+// Follow redirects for Google News URLs to get the final destination URL
+async function followGoogleNewsRedirect(googleNewsUrl, browser) {
+  try {
+    console.log(`[Scraper] Following redirect for Google News URL: ${googleNewsUrl.substring(0, 100)}...`);
+    
+    const page = await browser.newPage();
+    await page.setUserAgent(process.env.USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    try {
+      // Set up response listener to capture redirects
+      let finalUrl = googleNewsUrl;
+      
+      // Navigate and wait for redirects
+      const response = await page.goto(googleNewsUrl, { 
+        waitUntil: 'domcontentloaded', 
+        timeout: 15000 
+      });
+      
+      // Get the final URL after redirects
+      finalUrl = page.url();
+      
+      // If still on Google News domain, try to extract the actual URL from the page
+      if (finalUrl.includes('news.google.com')) {
+        // Google News sometimes shows the actual URL in a meta tag or redirects via JavaScript
+        // Try to find the actual article URL in the page
+        const content = await page.content();
+        const $ = cheerio.load(content);
+        
+        // Look for meta refresh or canonical link
+        const canonical = $('link[rel="canonical"]').attr('href');
+        if (canonical && !canonical.includes('news.google.com')) {
+          finalUrl = canonical;
+        } else {
+          // Try to find redirect URL in meta tags
+          const metaRefresh = $('meta[http-equiv="refresh"]').attr('content');
+          if (metaRefresh) {
+            const urlMatch = metaRefresh.match(/url=(.+)/i);
+            if (urlMatch && urlMatch[1]) {
+              finalUrl = urlMatch[1].trim();
+            }
+          }
+        }
+        
+        // If still on Google News, try to get the URL from the page's JavaScript redirect
+        // or wait a bit more for client-side redirect
+        if (finalUrl.includes('news.google.com')) {
+          await page.waitForTimeout(2000);
+          finalUrl = page.url();
+        }
+      }
+      
+      await page.close();
+      
+      if (finalUrl !== googleNewsUrl) {
+        console.log(`[Scraper] Redirect resolved: ${googleNewsUrl.substring(0, 80)}... -> ${finalUrl.substring(0, 80)}...`);
+      } else {
+        console.log(`[Scraper] No redirect found, using original URL`);
+      }
+      
+      return finalUrl;
+    } catch (error) {
+      await page.close();
+      console.warn(`[Scraper] Error following redirect for ${googleNewsUrl}:`, error.message);
+      return googleNewsUrl; // Return original URL on error
+    }
+  } catch (error) {
+    console.warn(`[Scraper] Failed to follow redirect for ${googleNewsUrl}:`, error.message);
+    return googleNewsUrl; // Return original URL on error
+  }
+}
+
+// Follow redirects for Google News URLs to get the final destination URL
+async function followGoogleNewsRedirect(googleNewsUrl, browser) {
+  try {
+    console.log(`[Scraper] Following redirect for Google News URL: ${googleNewsUrl.substring(0, 100)}...`);
+    
+    const page = await browser.newPage();
+    await page.setUserAgent(process.env.USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    try {
+      // Navigate and wait for redirects
+      const response = await page.goto(googleNewsUrl, { 
+        waitUntil: 'domcontentloaded', 
+        timeout: 15000 
+      });
+      
+      // Get the final URL after redirects
+      let finalUrl = page.url();
+      
+      // If still on Google News domain, try to extract the actual URL from the page
+      if (finalUrl.includes('news.google.com')) {
+        // Google News sometimes shows the actual URL in a meta tag or redirects via JavaScript
+        // Try to find the actual article URL in the page
+        const content = await page.content();
+        const $ = cheerio.load(content);
+        
+        // Look for meta refresh or canonical link
+        const canonical = $('link[rel="canonical"]').attr('href');
+        if (canonical && !canonical.includes('news.google.com')) {
+          finalUrl = canonical;
+        } else {
+          // Try to find redirect URL in meta tags
+          const metaRefresh = $('meta[http-equiv="refresh"]').attr('content');
+          if (metaRefresh) {
+            const urlMatch = metaRefresh.match(/url=(.+)/i);
+            if (urlMatch && urlMatch[1]) {
+              finalUrl = urlMatch[1].trim();
+            }
+          }
+        }
+        
+        // If still on Google News, wait a bit more for client-side redirect
+        if (finalUrl.includes('news.google.com')) {
+          await page.waitForTimeout(2000);
+          finalUrl = page.url();
+        }
+      }
+      
+      await page.close();
+      
+      if (finalUrl !== googleNewsUrl) {
+        console.log(`[Scraper] Redirect resolved: ${googleNewsUrl.substring(0, 80)}... -> ${finalUrl.substring(0, 80)}...`);
+      } else {
+        console.log(`[Scraper] No redirect found, using original URL`);
+      }
+      
+      return finalUrl;
+    } catch (error) {
+      await page.close();
+      console.warn(`[Scraper] Error following redirect for ${googleNewsUrl}:`, error.message);
+      return googleNewsUrl; // Return original URL on error
+    }
+  } catch (error) {
+    console.warn(`[Scraper] Failed to follow redirect for ${googleNewsUrl}:`, error.message);
+    return googleNewsUrl; // Return original URL on error
   }
 }
 
@@ -313,6 +460,9 @@ async function scrapeNews(baseUrl, keyword) {
   const articles = [];
   const searchUrl = buildSearchUrl(baseUrl, keyword);
   const timeout = parseInt(process.env.SCRAPE_TIMEOUT || 30000);
+  
+  console.log(`[Scraper] Scraping ${baseUrl} with keyword "${keyword}"`);
+  console.log(`[Scraper] Search URL: ${searchUrl}`);
 
   return retryOperation(async () => {
     try {
@@ -324,27 +474,172 @@ async function scrapeNews(baseUrl, keyword) {
 
       try {
         const page = await browser.newPage();
-        await page.setUserAgent(process.env.USER_AGENT || 'Mozilla/5.0 (compatible; AI-News-Bot/1.0)');
-        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout });
+        await page.setUserAgent(process.env.USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         
-        const content = await page.content();
+        // Set proper encoding for Google News (especially for Chinese content)
+        const isGoogleNews = baseUrl.includes('news.google.com');
+        if (isGoogleNews) {
+          // Set UTF-8 encoding and accept language headers
+          await page.setExtraHTTPHeaders({
+            'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+            'Accept-Charset': 'UTF-8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+          });
+        }
+        
+        const waitOptions = isGoogleNews 
+          ? { waitUntil: 'domcontentloaded', timeout: timeout }
+          : { waitUntil: 'networkidle2', timeout: timeout };
+        
+        await page.goto(searchUrl, waitOptions);
+        
+        // For Google News, wait a bit more for JavaScript to render
+        if (isGoogleNews) {
+          // Wait for article elements to appear
+          try {
+            await page.waitForSelector('article, [jslog]', { timeout: 5000 });
+            console.log(`[Scraper] Google News articles detected on page`);
+          } catch (e) {
+            console.warn(`[Scraper] No article elements found after wait: ${e.message}`);
+          }
+          await page.waitForTimeout(2000); // Additional wait for content to render
+        }
+        
+        // Check if page might be blocked or showing captcha
+        const pageTitle = await page.title();
+        const pageUrl = page.url();
+        console.log(`[Scraper] Page title: "${pageTitle}", Final URL: ${pageUrl}`);
+        
+        if (pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('blocked')) {
+          console.error(`[Scraper] Page might be blocked or showing captcha: ${pageTitle}`);
+        }
+        
+        // Get content with proper encoding
+        // For Google News, get content directly from document to preserve UTF-8 encoding
+        let content;
+        if (isGoogleNews) {
+          // Use evaluate to get content directly from the DOM to preserve encoding
+          content = await page.evaluate(() => {
+            // Ensure charset is set correctly in the document
+            if (document.documentElement) {
+              const metaCharset = document.querySelector('meta[charset]');
+              if (!metaCharset) {
+                const meta = document.createElement('meta');
+                meta.setAttribute('charset', 'UTF-8');
+                document.head.insertBefore(meta, document.head.firstChild);
+              }
+            }
+            return document.documentElement.outerHTML;
+          });
+        } else {
+          content = await page.content();
+        }
+        
+        // Ensure content is treated as UTF-8
+        // Check for charset declaration
+        if (isGoogleNews) {
+          const charsetMatch = content.match(/charset\s*=\s*["']?([^"'\s>]+)/i);
+          if (charsetMatch) {
+            console.log(`[Scraper] Content charset detected: ${charsetMatch[1]}`);
+          } else {
+            // Ensure UTF-8 charset is in the content
+            if (!content.includes('charset')) {
+              content = content.replace(/<head>/i, '<head><meta charset="UTF-8">');
+            }
+          }
+        }
+        
         await page.close();
 
-        const $ = cheerio.load(content);
+        // Load content with explicit UTF-8 encoding for Cheerio
+        const $ = cheerio.load(content, {
+          decodeEntities: true,
+          normalizeWhitespace: false,
+          xmlMode: false
+        });
+        console.log(`[Scraper] Page loaded, parsing HTML...`);
+        console.log(`[Scraper] HTML content length: ${content.length} characters`);
+        
+        // Verify encoding by checking for Chinese characters
+        if (isGoogleNews) {
+          const sampleText = $('body').text().substring(0, 500);
+          const hasChineseChars = /[\u4e00-\u9fff]/.test(sampleText);
+          console.log(`[Scraper] Chinese characters detected in content: ${hasChineseChars}`);
+          if (hasChineseChars) {
+            console.log(`[Scraper] Sample Chinese text: "${sampleText.substring(0, 100)}"`);
+          } else {
+            console.warn(`[Scraper] Warning: No Chinese characters found - possible encoding issue`);
+          }
+        }
+        
+        // Debug: Check what elements exist for Google News
+        if (baseUrl.includes('news.google.com')) {
+          const articleCount = $('article').length;
+          const jslogCount = $('[jslog]').length;
+          const h3Count = $('h3').length;
+          const h4Count = $('h4').length;
+          const articleLinks = $('a[href*="articles"]').length;
+          console.log(`[Scraper] Google News debug - articles: ${articleCount}, [jslog]: ${jslogCount}, h3: ${h3Count}, h4: ${h4Count}, article links: ${articleLinks}`);
+          
+          // Log a sample of article HTML structure
+          if (articleCount > 0) {
+            const firstArticle = $('article').first();
+            console.log(`[Scraper] First article HTML sample (first 500 chars):`, firstArticle.html().substring(0, 500));
+          } else if (jslogCount > 0) {
+            const firstJslog = $('[jslog]').first();
+            console.log(`[Scraper] First [jslog] element HTML sample (first 500 chars):`, firstJslog.html().substring(0, 500));
+          }
+        }
+        
         const initialArticles = parseNewsFromHTML($, baseUrl, keyword);
+        console.log(`[Scraper] Found ${initialArticles.length} articles after parsing HTML`);
         
         // Limit to top 20 before fetching metadata
         const topArticles = initialArticles.slice(0, 20);
+        console.log(`[Scraper] Processing top ${topArticles.length} articles for metadata`);
+        
+        // First, resolve Google News redirects to get final URLs
+        console.log(`[Scraper] Resolving Google News redirects...`);
+        for (let i = 0; i < topArticles.length; i++) {
+          const article = topArticles[i];
+          if (article.url && article.url.includes('news.google.com/read/')) {
+            try {
+              const finalUrl = await followGoogleNewsRedirect(article.url, browser);
+              article.url = finalUrl; // Replace with final destination URL
+              console.log(`[Scraper] Resolved Google News URL to: ${finalUrl.substring(0, 100)}...`);
+            } catch (error) {
+              console.warn(`[Scraper] Failed to resolve redirect for ${article.url}:`, error.message);
+              // Keep original URL if redirect fails
+            }
+            // Small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        }
         
         // Fetch published date and author from each article page
         console.log(`[Scraper] Fetching metadata for ${topArticles.length} articles...`);
         for (let i = 0; i < topArticles.length; i++) {
           const article = topArticles[i];
           if (article.url) {
-            const metadata = await fetchArticleMetadata(article.url, browser);
-            if (metadata) {
-              article.publishedAt = metadata.publishedAt;
-              article.author = metadata.author;
+            // Skip if still a Google News URL (redirect failed)
+            if (article.url.includes('news.google.com/read/')) {
+              console.log(`[Scraper] Skipping metadata fetch for unresolved Google News URL`);
+              continue;
+            }
+            
+            let urlToFetch = article.url;
+            if (urlToFetch.includes('news.google.com') && !urlToFetch.startsWith('http')) {
+              urlToFetch = `https://${urlToFetch}`;
+            }
+            
+            try {
+              const metadata = await fetchArticleMetadata(urlToFetch, browser);
+              if (metadata) {
+                article.publishedAt = metadata.publishedAt;
+                article.author = metadata.author;
+              }
+            } catch (error) {
+              console.warn(`[Scraper] Failed to fetch metadata for ${urlToFetch}:`, error.message);
             }
             // Small delay to avoid rate limiting
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -461,30 +756,129 @@ function parseNewsFromHTML($, baseUrl, keyword) {
     }
     // Google News parsing
     else if (baseUrlObj.hostname.includes('news.google.com')) {
-      $('article').each((i, elem) => {
-        const $article = $(elem);
-        const $link = $article.find('a[href*="/articles/"]').first();
+      console.log(`[Scraper] Parsing Google News articles from ${baseUrl}`);
+      
+      // Google News uses /read/ URLs (not /articles/)
+      // Find all links with /read/ pattern - these are the article links
+      const readLinks = $('a[href*="/read/"]');
+      console.log(`[Scraper] Found ${readLinks.length} links with /read/ pattern`);
+      
+      const seenUrls = new Set();
+      let foundArticles = 0;
+      
+      readLinks.each((i, elem) => {
+        const $link = $(elem);
+        const href = $link.attr('href');
+        let title = $link.text().trim();
         
-        if ($link.length === 0) return;
-
-        const title = $link.text().trim();
-        let url = $link.attr('href');
+        // Skip if no href or already seen
+        if (!href || seenUrls.has(href)) return;
         
-        if (!url || !title) return;
-
-        // Google News URLs are relative, need to extract actual URL
-        if (url.startsWith('./')) {
-          url = url.substring(2);
+        // Some links are wrappers with empty text - find the actual title link nearby
+        if (!title || title.length < 5) {
+          // Look for a sibling or parent link with text
+          const $parent = $link.parent();
+          const $titleLink = $parent.find('a').filter((idx, el) => {
+            const text = $(el).text().trim();
+            return text && text.length > 5;
+          }).first();
+          
+          if ($titleLink.length > 0) {
+            title = $titleLink.text().trim();
+            // Use the /read/ URL from the original link, but title from the title link
+          } else {
+            // Try finding title in nearby elements
+            const $container = $link.closest('div');
+            const $titleElem = $container.find('h3, h4, a').filter((idx, el) => {
+              const text = $(el).text().trim();
+              return text && text.length > 5 && !text.match(/^(更多|分享|追蹤)/);
+            }).first();
+            
+            if ($titleElem.length > 0) {
+              title = $titleElem.text().trim();
+            }
+          }
         }
-
-        // Find description
-        const description = $article.find('div[data-n-tid]').first().text().trim() || '';
         
-        // Find published date
-        const timeElem = $article.find('time').first();
-        const dateText = timeElem.attr('datetime') || timeElem.text().trim();
+        // Skip if still no valid title
+        if (!title || title.length < 5) {
+          if (foundArticles < 3) {
+            console.log(`[Scraper] Skipping link - no valid title found`);
+          }
+          return;
+        }
+        
+        // Build full URL
+        let url = href;
+        if (url.startsWith('./read/')) {
+          url = `https://news.google.com${url.substring(1)}`;
+        } else if (url.startsWith('./')) {
+          url = `https://news.google.com${url.substring(1)}`;
+        } else if (url.startsWith('/')) {
+          url = `https://news.google.com${url}`;
+        } else if (!url.startsWith('http')) {
+          url = `https://news.google.com/${url}`;
+        }
+        
+        // Find description - look in the same container
+        let description = '';
+        const $container = $link.closest('div');
+        if ($container.length > 0) {
+          // Try to find description text that's not the title
+          const containerText = $container.text();
+          const titleIndex = containerText.indexOf(title);
+          if (titleIndex >= 0) {
+            // Get text after title
+            const afterTitle = containerText.substring(titleIndex + title.length).trim();
+            // Extract first sentence or paragraph
+            const descMatch = afterTitle.match(/^[^。！？\n]{10,200}/);
+            if (descMatch && descMatch[0] !== title) {
+              description = descMatch[0].trim();
+            }
+          }
+          
+          // Also try specific selectors
+          if (!description) {
+            const descSelectors = ['div[data-n-tid]', '.Y3v8qd', '.GI74Re', 'p'];
+            for (const descSel of descSelectors) {
+              const descText = $container.find(descSel).first().text().trim();
+              if (descText && descText.length > 10 && descText !== title) {
+                description = descText;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Find published date - look for time element in the same container
+        let dateText = '';
+        const $containerForDate = $link.closest('div');
+        if ($containerForDate.length > 0) {
+          const $timeElem = $containerForDate.find('time').first();
+          if ($timeElem.length > 0) {
+            dateText = $timeElem.attr('datetime') || $timeElem.text().trim();
+          }
+        }
+        
+        // If no time in immediate container, look in parent containers
+        if (!dateText) {
+          let $parent = $link.parent();
+          for (let depth = 0; depth < 5 && $parent.length > 0; depth++) {
+            const $timeElem = $parent.find('time').first();
+            if ($timeElem.length > 0) {
+              dateText = $timeElem.attr('datetime') || $timeElem.text().trim();
+              if (dateText) break;
+            }
+            $parent = $parent.parent();
+          }
+        }
+        
         const publishedAt = parseDate(dateText);
-
+        
+        if (foundArticles < 3) {
+          console.log(`[Scraper] Found article: "${title.substring(0, 60)}..." with URL: ${url.substring(0, 80)}...`);
+        }
+        
         articles.push({
           title,
           url,
@@ -492,7 +886,12 @@ function parseNewsFromHTML($, baseUrl, keyword) {
           publishedAt,
           source: baseUrl
         });
+        
+        seenUrls.add(href);
+        foundArticles++;
       });
+      
+      console.log(`[Scraper] Found ${foundArticles} Google News articles`);
     }
     // Generic parsing (fallback)
     else {

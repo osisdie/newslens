@@ -20,7 +20,8 @@
   align-items: center;
 }
 
-.keyword-filter {
+.keyword-filter,
+.source-filter {
   padding: 0.45rem 0.6rem;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -149,6 +150,45 @@
 
 .article-link:hover {
   background-color: #f0f0f0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.copy-link-button {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.copy-link-button:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+.article-link.external {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #007AFF;
+  color: white;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.article-link.external:hover {
+  background: #0056b3;
 }
 
 .keyword-group {

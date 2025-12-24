@@ -56,9 +56,37 @@ export function AuthProvider({ children }) {
       
       return { success: true };
     } catch (error) {
+      // Handle validation errors (array format)
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationErrors = error.response.data.errors
+          .map(err => err.msg || err.message || `${err.param}: ${err.msg}`)
+          .join(', ');
+        return {
+          success: false,
+          error: validationErrors || 'Validation failed'
+        };
+      }
+      
+      // Handle single error message
+      if (error.response?.data?.error) {
+        return {
+          success: false,
+          error: error.response.data.error
+        };
+      }
+      
+      // Handle network errors
+      if (error.message === 'Network Error' || !error.response) {
+        return {
+          success: false,
+          error: 'Network error. Please check your connection and try again.'
+        };
+      }
+      
+      // Fallback
       return {
         success: false,
-        error: error.response?.data?.error || 'Registration failed'
+        error: error.response?.data?.message || 'Registration failed. Please try again.'
       };
     }
   }

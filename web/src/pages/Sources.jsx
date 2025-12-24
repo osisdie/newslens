@@ -5,7 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import TagInput from '../components/TagInput';
 import './Sources.css';
 
+// Predefined news sources
+const PREDEFINED_SOURCES = [
+  { name: 'Google News (繁體中文)', url: 'https://news.google.com/' },
+  { name: 'Yahoo News (台灣)', url: 'https://tw.news.yahoo.com/' },
+  { name: 'Yahoo News (US)', url: 'https://news.yahoo.com/' },
+  { name: '經濟日報 (money.udn.com)', url: 'https://money.udn.com/' },
+  { name: 'Custom URL', url: '' }
+];
+
 export default function Sources() {
+  const [selectedSource, setSelectedSource] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newKeywords, setNewKeywords] = useState('');
   const [editingSourceId, setEditingSourceId] = useState(null);
@@ -30,6 +40,7 @@ export default function Sources() {
       queryClient.invalidateQueries(['sources']);
       setNewUrl('');
       setNewKeywords('');
+      setSelectedSource('');
       alert('Source added successfully!');
     },
     onError: (error) => {
@@ -62,15 +73,31 @@ export default function Sources() {
     }
   });
 
+  function handleSourceChange(e) {
+    const value = e.target.value;
+    setSelectedSource(value);
+    
+    if (value === 'custom') {
+      setNewUrl('');
+    } else {
+      const source = PREDEFINED_SOURCES.find(s => s.url === value);
+      if (source) {
+        setNewUrl(source.url);
+      }
+    }
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
-    if (!newUrl || !newKeywords) {
-      alert('Please enter URL and keywords');
+    const urlToUse = selectedSource === 'custom' ? newUrl : selectedSource;
+    
+    if (!urlToUse || !newKeywords) {
+      alert('Please select a source and enter keywords');
       return;
     }
 
     const keywords = newKeywords.split(',').map(k => k.trim()).filter(k => k);
-    addMutation.mutate({ base_url: newUrl, keywords });
+    addMutation.mutate({ base_url: urlToUse, keywords });
   }
 
   function handleDelete(sourceId) {
@@ -112,13 +139,28 @@ export default function Sources() {
       <h1>News Sources</h1>
       
       <form onSubmit={handleSubmit} className="source-form">
-        <input
-          type="url"
-          placeholder="News source URL (e.g., https://tw.news.yahoo.com/)"
-          value={newUrl}
-          onChange={(e) => setNewUrl(e.target.value)}
+        <select
+          className="source-select"
+          value={selectedSource}
+          onChange={handleSourceChange}
           required
-        />
+        >
+          <option value="">Select a news source...</option>
+          {PREDEFINED_SOURCES.map((source, idx) => (
+            <option key={idx} value={source.url || 'custom'}>
+              {source.name}
+            </option>
+          ))}
+        </select>
+        {selectedSource === 'custom' && (
+          <input
+            type="url"
+            placeholder="Enter custom news source URL (e.g., https://example.com/)"
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            required
+          />
+        )}
         <input
           type="text"
           placeholder="Keywords (comma-separated, e.g., AI, Technology)"

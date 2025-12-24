@@ -30,7 +30,7 @@ async function scrapeAllSources() {
             for (const article of articles) {
               // Check if article already exists
               const existing = await query(
-                'SELECT id FROM news_articles WHERE source_id = $1 AND url = $2',
+                'SELECT id, published_at, author FROM news_articles WHERE source_id = $1 AND url = $2',
                 [source.source_id, article.url]
               );
 
@@ -58,6 +58,43 @@ async function scrapeAllSources() {
                 );
 
                 totalScraped++;
+              } else {
+                // Article exists - update metadata and refresh scraped_at timestamp
+                const existingArticle = existing.rows[0];
+                const updateFields = [];
+                const updateValues = [];
+                let paramIndex = 1;
+                
+                // Always update scraped_at
+                updateFields.push(`scraped_at = NOW()`);
+                
+                // Update published_at if we have a new value
+                if (article.publishedAt) {
+                  updateFields.push(`published_at = $${paramIndex}`);
+                  updateValues.push(article.publishedAt);
+                  paramIndex++;
+                }
+                
+                // Update author if we have a new value
+                if (article.author && !existingArticle.author) {
+                  updateFields.push(`author = $${paramIndex}`);
+                  updateValues.push(article.author);
+                  paramIndex++;
+                }
+                
+                // Execute update
+                if (updateFields.length > 1) {
+                  updateValues.push(existingArticle.id);
+                  await query(
+                    `UPDATE news_articles SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`,
+                    updateValues
+                  );
+                } else {
+                  await query(
+                    'UPDATE news_articles SET scraped_at = NOW() WHERE id = $1',
+                    [existingArticle.id]
+                  );
+                }
               }
             }
 

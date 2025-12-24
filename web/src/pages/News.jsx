@@ -43,6 +43,8 @@ export default function News() {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [keywordFilter, setKeywordFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [scrapingStartedAt, setScrapingStartedAt] = useState(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -53,10 +55,14 @@ export default function News() {
   }, []);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['news'],
+    queryKey: ['news', sourceFilter],
     queryFn: async () => {
-      console.log('[News] Fetching news...');
-      const response = await api.get('/news');
+      console.log('[News] Fetching news...', { sourceFilter });
+      const params = new URLSearchParams();
+      if (sourceFilter !== 'all') {
+        params.append('sourceId', sourceFilter);
+      }
+      const response = await api.get(`/news?${params.toString()}`);
       console.log('[News] Got response:', response.data);
       return response.data;
     },
@@ -184,12 +190,23 @@ export default function News() {
     return Array.from(opts).sort();
   }, [articles, sourcesData]);
 
-  // Reset filter if current selection no longer exists
+  const sourceOptions = useMemo(() => {
+    if (!sourcesData?.sources) return [];
+    return sourcesData.sources.map(source => ({
+      id: source.id,
+      url: source.base_url
+    }));
+  }, [sourcesData]);
+
+  // Reset filters if current selection no longer exists
   useEffect(() => {
     if (keywordFilter !== 'all' && !keywordOptions.includes(keywordFilter)) {
       setKeywordFilter('all');
     }
-  }, [keywordFilter, keywordOptions]);
+    if (sourceFilter !== 'all' && !sourceOptions.find(s => s.id.toString() === sourceFilter)) {
+      setSourceFilter('all');
+    }
+  }, [keywordFilter, keywordOptions, sourceFilter, sourceOptions]);
 
   const filteredGroupedArticles = useMemo(() => {
     if (keywordFilter === 'all') return groupedArticles;
@@ -236,14 +253,36 @@ export default function News() {
     }
   }, [isLoading, scrapeMutation.isLoading, autoScrapeTriggered, articles.length, data]);
 
-  // While scraping is in progress, poll the news endpoint to reflect per-article updates
+  // Track when scraping started to know when to stop showing the "scraping started" message
   useEffect(() => {
-    if (!scrapeMutation.isLoading) return undefined;
+    if (scrapeMutation.isSuccess && scrapeMutation.data?.message === 'Scraping started') {
+      setScrapingStartedAt(Date.now());
+    }
+    
+    if (!scrapeMutation.isLoading && !scrapeMutation.isSuccess) {
+      setScrapingStartedAt(null);
+    }
+  }, [scrapeMutation.isSuccess, scrapeMutation.isLoading, scrapeMutation.data]);
+
+  // While scraping is in progress, poll the news endpoint to reflect per-article updates (more aggressively)
+  useEffect(() => {
+    if (!scrapeMutation.isLoading && !scrapeMutation.isSuccess) return undefined;
+
+    // Poll more frequently during scraping to see articles as they appear
+    const pollInterval = scrapeMutation.isLoading ? 1000 : 3000; // 1s during scrape, 3s after
+    
     const interval = setInterval(() => {
+      console.log('[News] Polling for new articles...');
       refetch();
-    }, 2000); // poll every 2s during scrape
+      
+      // Stop showing "scraping started" message after 30 seconds
+      if (scrapingStartedAt && Date.now() - scrapingStartedAt > 30000) {
+        setScrapingStartedAt(null);
+      }
+    }, pollInterval);
+
     return () => clearInterval(interval);
-  }, [scrapeMutation.isLoading, refetch]);
+  }, [scrapeMutation.isLoading, scrapeMutation.isSuccess, scrapingStartedAt, refetch]);
 
   console.log('[News] Render state:', { isLoading, articlesCount: articles.length, autoScrapeTriggered });
 
@@ -262,6 +301,20 @@ export default function News() {
       <div className="news-header">
         <h1>Latest News</h1>
         <div className="header-actions">
+          {sourceOptions.length > 0 && (
+            <select
+              className="source-filter"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="all">All sources</option>
+              {sourceOptions.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {new URL(source.url).hostname}
+                </option>
+              ))}
+            </select>
+          )}
           {keywordOptions.length > 0 && (
             <select
               className="keyword-filter"
@@ -294,11 +347,13 @@ export default function News() {
         </div>
       </div>
       
-      {scrapeMutation.isSuccess && scrapeMutation.data && (
+      {scrapeMutation.isSuccess && scrapeMutation.data && scrapingStartedAt && (
         <div className="success-message" style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: '#d4edda', color: '#155724', borderRadius: '4px' }}>
-          {scrapeMutation.data.articlesScraped > 0 
-            ? `Successfully scraped ${scrapeMutation.data.articlesScraped} new article(s)!`
-            : 'No new articles found. Try different keywords or sources.'}
+          {scrapeMutation.data.message === 'Scraping started' 
+            ? `Scraping started for ${scrapeMutation.data.sourcesCount || 'all'} source(s). Articles will appear as they are found...`
+            : scrapeMutation.data.articlesScraped > 0 
+              ? `Successfully scraped ${scrapeMutation.data.articlesScraped} new article(s)!`
+              : null}
         </div>
       )}
       
@@ -430,14 +485,40 @@ export default function News() {
                   ))}
                 </div>
               </div>
-              <a
-                href={selectedArticle.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="article-link external"
-              >
-                Open Source →
-              </a>
+              <div className="modal-actions">
+                <button
+                  className="copy-link-button"
+                  onClick={async (e) => {
+                    try {
+                      await navigator.clipboard.writeText(selectedArticle.url);
+                      // Show temporary feedback
+                      const button = e.target;
+                      const originalText = button.textContent;
+                      button.textContent = '✓ Copied!';
+                      button.style.backgroundColor = '#d4edda';
+                      button.style.color = '#155724';
+                      setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.backgroundColor = '';
+                        button.style.color = '';
+                      }, 2000);
+                    } catch (err) {
+                      console.error('Failed to copy link:', err);
+                      alert('Failed to copy link. Please copy manually: ' + selectedArticle.url);
+                    }
+                  }}
+                >
+                  Copy Link
+                </button>
+                <a
+                  href={selectedArticle.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="article-link external"
+                >
+                  Open Source →
+                </a>
+              </div>
             </div>
           </div>
         </div>
