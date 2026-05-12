@@ -4,14 +4,17 @@ stages:
 
 variables:
   NODE_VERSION: "20"
+  GITLEAKS_VERSION: "8.18.0"
+  GIT_DEPTH: "0"   # full history so gitleaks can scan
 
 gitleaks:
   stage: scan
-  image:
-    name: zricethezav/gitleaks:latest
-    entrypoint: [""]
+  image: alpine:3.19
+  before_script:
+    - apk add --no-cache curl git tar
+    - curl -sL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz -C /usr/local/bin gitleaks
   script:
-    - gitleaks detect --source . --redact --verbose
+    - gitleaks detect --source . --redact --verbose --exit-code 1
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -19,15 +22,9 @@ gitleaks:
 build:backend:
   stage: build
   image: node:${NODE_VERSION}
-  cache:
-    key:
-      files:
-        - backend/package-lock.json
-    paths:
-      - backend/node_modules/
   script:
     - cd backend
-    - npm ci || npm install
+    - npm install --no-audit --no-fund
     - node --check src/server.js
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
@@ -36,15 +33,9 @@ build:backend:
 build:web:
   stage: build
   image: node:${NODE_VERSION}
-  cache:
-    key:
-      files:
-        - web/package-lock.json
-    paths:
-      - web/node_modules/
   script:
     - cd web
-    - npm ci || npm install
+    - npm install --no-audit --no-fund
     - npm run build
   artifacts:
     paths:
