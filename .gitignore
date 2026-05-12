@@ -60,3 +60,6 @@ output/
 # CLAUDE
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Terminal session recordings (output of `script(1)`)
+typescript
