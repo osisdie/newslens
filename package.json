@@ -1,7 +1,7 @@
 {
-  "name": "react-ai-news",
+  "name": "newslens",
   "version": "1.0.0",
-  "description": "AI-powered news aggregation app for iOS and Web",
+  "description": "NewsLens — AI-powered news aggregator with iOS + Web clients, Stripe subscriptions, and per-source keyword filtering",
   "private": "true",
   "workspaces": [
     "mobile",

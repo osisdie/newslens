@@ -1,0 +1,19 @@
+# https://pre-commit.com/  -- install via: `pip install pre-commit && pre-commit install`
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+        exclude: '^(\.gitlab-ci\.yml|\.github/.*\.yml)$'  # CI files use !reference / templating tags
+      - id: end-of-file-fixer
+        exclude: '^docs/screenshots/.*\.png$'
+      - id: trailing-whitespace
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ['--maxkb=512']

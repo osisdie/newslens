@@ -1,164 +1,175 @@
-# AI News Aggregator - iOS/Web App
+# NewsLens — AI-Powered News, Filtered Sharply
 
-A news aggregation application that allows users to track news from multiple sources based on their interests and keywords. Available on iOS and Web.
+![CI](https://github.com/osisdie/newslens/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Node](https://img.shields.io/badge/node-20-brightgreen.svg)
+![Stripe](https://img.shields.io/badge/Stripe-Subscriptions-635BFF.svg)
+
+NewsLens is a news aggregation app that tracks news from multiple sources based on per-user keywords, then scores every article for fake-news / clickbait / phishing signals. iOS + Web clients backed by a Node/Postgres API with Stripe-powered monthly subscriptions.
 
 ## Features
 
-### Core Features
-- **Multi-source News Aggregation**: Input news source websites and keywords to filter relevant articles
-- **Smart Filtering**: Each source can have multiple keywords for targeted news discovery
-- **Latest First**: News sorted by publication date (newest first)
-- **News Analysis**: Each article tagged with:
-  - Source and publication date
-  - Fake news detection rate
-  - Clickbait headline rate
-  - Phishing detection rate
+### Core
+- **Multi-source aggregation** — bring your own news sources (Google News, UDN, Yahoo, etc.) with per-source keyword filters.
+- **AI scoring** — each article is tagged with three signals:
+  - Fake-news rate
+  - Clickbait rate
+  - Phishing rate
+- **Latest-first feed** — sorted by publication date with source/keyword facets.
 
-### Subscription Tiers
-- **Free Tier**: 
-  - 3 news source links
-  - 3 keywords per link
-- **Paid Tier**: 
-  - Unlimited news source links
-  - Unlimited keywords per link
+### Subscription tiers
+- **Free** — 3 sources, 3 keywords per source.
+- **Paid (USD $9.99 / month)** — unlimited sources and keywords.
 
-### Billing Features
-- Monthly subscription management
-- Billing status and history
-- Auto-renewal control (can stop auto-renew, no refunds)
+### Billing
+- Stripe Checkout for card capture (test mode supports Sandboxes).
+- Graceful cancel (`cancel_at_period_end`) — keeps access until period end, UI flips from `Renews on` to `Expires on`.
+- Webhook-driven state sync (`checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.deleted`).
 
 ### Authentication
-- Login from web or iOS app
-- Secure authentication system
+- JWT-based session with `/api/auth/register`, `/api/auth/login`, `/api/auth/me`.
+
+## Screenshots
+
+| Step | View |
+|---|---|
+| 1. Auth / Profile | ![](docs/screenshots/01_user_profile.png) |
+| 2. Billing — free tier | ![](docs/screenshots/02_billing_subscription.png) |
+| 3. Stripe-hosted checkout | ![](docs/screenshots/03_stripe_checkout.png) |
+| 4. Success redirect | ![](docs/screenshots/04_stripe_checkout_completed.png) |
+| 5. Active — "Renews on" | ![](docs/screenshots/05_billing_subscribed.png) |
+| 6. Cancelled — "Expires on" | ![](docs/screenshots/06_billing_cancel_subscription.png) |
 
 ## Tech Stack
 
 ### Frontend
-- React Native (iOS + Web support)
-- React Navigation
-- AsyncStorage for local data
+- React (Web) + Vite
+- React Native + Expo (iOS)
+- React Router, TanStack Query
+- AsyncStorage on iOS, `localStorage` on Web (JWT)
 
 ### Backend
-- Node.js + Express
-- PostgreSQL (or SQLite for development)
-- JWT authentication
-- News scraping with Puppeteer/Cheerio
+- Node.js 20 + Express
+- PostgreSQL (with optional SQLite for dev)
+- JWT (`jsonwebtoken`)
+- Puppeteer + Cheerio for scraping
+- Stripe Node SDK
 
 ### Infrastructure
-- Low-cost cloud hosting (Railway/Render/Vercel)
-- Usage quota limits to prevent billing spikes
-- Daily and monthly usage tracking
+- Stripe Sandboxes for test-mode billing
+- Per-user daily / monthly quota enforcement to bound hosting cost
+- Multi-push `git origin` (GitLab + GitHub mirror)
 
 ## Project Structure
 
 ```
-react-ai-news/
-├── mobile/                 # React Native iOS app
-├── web/                    # Web version (React)
-├── backend/                # Node.js API server
-├── shared/                 # Shared types and utilities
-└── infrastructure/         # Deployment configs
+newslens/
+├── mobile/                 # React Native / Expo
+├── web/                    # React + Vite
+├── backend/                # Express API
+├── docs/                   # Setup guides + screenshots
+├── scripts/                # Dev helpers (stripe CLI, slack_notify, test_subscription_flow.sh)
+└── .github/, .gitlab-ci.yml, .pre-commit-config.yaml
 ```
 
 ## Getting Started
 
 ### Prerequisites
-- **Node.js 20** (required - see [docs/SETUP_NODE.md](./docs/SETUP_NODE.md) to set as default)
-- React Native CLI
-- PostgreSQL (or SQLite for dev)
-  - **WSL users**: Run `bash backend/scripts/install-postgresql-wsl.sh` for first-time setup
-- iOS development tools (Xcode for iOS)
+- **Node.js 20** (see [docs/SETUP_NODE.md](./docs/SETUP_NODE.md))
+- **PostgreSQL** (`bash backend/scripts/install-postgresql-wsl.sh` for WSL)
+- Xcode + EAS CLI (iOS only)
 
 ### Installation
 
-1. Clone the repository
-2. **Set up Node.js 20** (if not already default):
-   ```bash
-   npm run setup-node  # Sets Node.js 20 as default
-   npm run setup-nvm   # Auto-loads nvm in your shell
-   ```
-3. Install dependencies (see [docs/INSTALL.md](./docs/INSTALL.md) for detailed instructions):
-   ```bash
-   # Install backend
-   cd backend && npm install && cd ..
-   
-   # Install web
-   cd web && npm install && cd ..
-   
-   # Install mobile (requires --legacy-peer-deps for Expo)
-   cd mobile && npm install --legacy-peer-deps && cd ..
-   ```
-   
-   **Note**: Due to React version differences between workspaces, install each separately. See [INSTALL.md](./INSTALL.md) for details.
+```bash
+# 1. Clone
+git clone git@github.com:osisdie/newslens.git
+cd newslens
 
-3. Set up environment variables (see `backend/.env.example`)
+# 2. Node 20 (if not default)
+npm run setup-node
+npm run setup-nvm
 
-4. Set up database:
-   ```bash
-   cd backend
-   npm run create-db  # Creates DB and initializes schema
-   # OR if DB already exists:
-   npm run migrate     # Just initializes schema
-   ```
-   
-   See [docs/DATABASE_SETUP.md](./docs/DATABASE_SETUP.md) for troubleshooting.
+# 3. Install per workspace (separate due to React version differences)
+cd backend  && npm install && cd ..
+cd web      && npm install && cd ..
+cd mobile   && npm install --legacy-peer-deps && cd ..
 
-5. Start the backend:
-   ```bash
-   cd backend && npm run dev
-   ```
+# 4. Configure env
+cp .env.example .env
+# edit .env with your Stripe sandbox keys, JWT secret, etc.
 
-6. Start the mobile app:
-   ```bash
-   cd mobile && npm run ios
-   ```
+# 5. Initialize DB
+cd backend && npm run create-db && cd ..
 
-7. Start the web app:
-   ```bash
-   cd web && npm start
-   ```
+# 6. Start backend + web (separate terminals)
+npm run dev:backend
+npm run dev:web
+
+# 7. iOS (separate terminal)
+cd mobile && npm run ios
+```
+
+### Pre-commit hooks (recommended)
+
+Catches secrets before they leave your machine:
+
+```bash
+pip install pre-commit
+pre-commit install
+# Test it:
+pre-commit run --all-files
+```
 
 ## Environment Variables
 
-### Backend
+All env vars live in **one place**: the root `./.env` (gitignored). Copy from [`.env.example`](./.env.example) and edit.
 
-Copy `backend/.env.example` to `backend/.env` and configure:
+### Required
+- `DATABASE_URL` — Postgres connection string
+- `JWT_SECRET` — generate with `openssl rand -base64 32`
+- `STRIPE_SECRET_KEY` — from Stripe Dashboard or Sandbox
+- `STRIPE_WEBHOOK_SECRET` — from `stripe listen` output (local) or webhook endpoint config (prod)
+- `SUBSCRIPTION_PRICE_ID` — Stripe price ID for the monthly plan
 
-**Required:**
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - Secret key for JWT tokens (generate with: `openssl rand -base64 32`)
-- `STRIPE_SECRET_KEY` - Stripe API secret key
-- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
-- `SUBSCRIPTION_PRICE_ID` - Stripe price ID for monthly subscription
+### Optional (with defaults)
+- `PORT` (3000), `NODE_ENV` (development)
+- Quota knobs: `DAILY_API_LIMIT`, `MONTHLY_API_LIMIT`, `DAILY_SCRAPE_LIMIT`, `MONTHLY_SCRAPE_LIMIT`
 
-**Optional (with defaults):**
-- `PORT` - Server port (default: 3000)
-- Usage quota limits (DAILY_API_LIMIT, MONTHLY_API_LIMIT, etc.)
+### Client-side
+- `VITE_API_URL` (web, defaults to `/api` via Vite proxy)
+- `EXPO_PUBLIC_API_URL` (mobile, defaults to `http://localhost:3000/api`)
 
-See `backend/.env.example` for complete list with detailed comments.
+For Stripe setup, see [docs/STRIPE_SETUP.md](./docs/STRIPE_SETUP.md).
 
-For Stripe setup instructions, see [docs/STRIPE_SETUP.md](./docs/STRIPE_SETUP.md).
+## Subscription Test Flow
 
-### Mobile/Web
+End-to-end script that walks `free → active → cancel-auto-renew → immediate cancel`:
 
-Optional environment variables (defaults to `http://localhost:3000/api`):
-- `EXPO_PUBLIC_API_URL` (mobile)
-- `VITE_API_URL` (web)
+```bash
+./scripts/test_subscription_flow.sh
+# Follow the printed checkout URL, pay with test card 4242 4242 4242 4242
+```
+
+See script for assertions and DB queries you can use during manual debugging.
 
 ## iOS App Release
 
-For complete instructions on releasing your iOS app to the App Store, including TestFlight beta testing, see [docs/IOS_RELEASE_GUIDE.md](./docs/IOS_RELEASE_GUIDE.md).
+See [docs/IOS_RELEASE_GUIDE.md](./docs/IOS_RELEASE_GUIDE.md) for TestFlight + App Store walkthrough.
 
-**Quick Start:**
-1. Set up Apple Developer account ($99/year)
-2. Install EAS CLI: `npm install -g eas-cli`
-3. Configure build: `cd mobile && eas build:configure`
-4. Build for TestFlight: `eas build --platform ios --profile production`
-5. Submit to App Store: `eas submit --platform ios`
+```bash
+npm install -g eas-cli
+cd mobile && eas build:configure
+eas build --platform ios --profile production
+eas submit --platform ios
+```
 
-See the [iOS Release Guide](./docs/IOS_RELEASE_GUIDE.md) for detailed steps.
+## CI / Security
+
+- **GitHub Actions** (`.github/workflows/ci.yml`) — gitleaks scan + `npm ci` matrix (backend syntax-check, web `vite build`)
+- **GitLab CI** (`.gitlab-ci.yml`) — same jobs for the GitLab mirror
+- **Pre-commit** (`.pre-commit-config.yaml`) — gitleaks + hygiene hooks block secret leaks at commit time
 
 ## License
 
-MIT
-
+MIT — see [LICENSE](./LICENSE).

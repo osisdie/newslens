@@ -11,7 +11,7 @@
  *   node src/db/migrate-multiple-tags.js
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 const { query } = require('./init');
 
 async function migrateMultipleTags() {

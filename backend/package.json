@@ -1,7 +1,7 @@
 {
-  "name": "ai-news-backend",
+  "name": "newslens-backend",
   "version": "1.0.0",
-  "description": "Backend API for AI News Aggregator",
+  "description": "Backend API for NewsLens",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

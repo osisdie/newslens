@@ -12,7 +12,7 @@
  *   DATABASE_URL="postgresql://user:pass@host:5432/postgres" node scripts/create-db.js
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const { Pool } = require('pg');
 
 async function createDatabase() {

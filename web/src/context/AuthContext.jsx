@@ -21,7 +21,9 @@ export function AuthProvider({ children }) {
       }
     } catch (error) {
       console.error('Load user error:', error);
-      localStorage.removeItem('auth_token');
+      if (error.response?.status === 401) {
+        localStorage.removeItem('auth_token');
+      }
     } finally {
       setLoading(false);
     }

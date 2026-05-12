@@ -68,9 +68,14 @@ export default function Billing() {
           </div>
           {isActive && subscription.current_period_end && (
             <div className="status-row">
-              <span className="status-label">Renews:</span>
+              <span className="status-label">
+                {subscription.auto_renew ? 'Renews on:' : 'Expires on:'}
+              </span>
               <span className="status-value">
                 {new Date(subscription.current_period_end).toLocaleDateString()}
+                {!subscription.auto_renew && (
+                  <span className="status-note"> (auto-renew cancelled)</span>
+                )}
               </span>
             </div>
           )}
